@@ -90,6 +90,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.assertj.core.api.AssertionInfo;
@@ -1127,20 +1128,16 @@ public class Iterables {
     for(Consumer<? super E> consumer: consumers)
       requireNonNull(consumer, "The element in consumers must not be null");
 
-    List<E>[] satisfiedElementsLists = new ArrayList[consumers.length];
-    for (int i = 0; i < consumers.length; i++) {
-      Consumer<? super E> consumer = consumers[i];
-      satisfiedElementsLists[i] = stream(actual).filter(element -> {
-        try {
-          consumer.accept(element);
-        } catch (AssertionError ex) {
-          return false;
-        }
-        return true;
-      }).collect(toList());
-    }
+    List<E>[] satisfiedElementsLists = stream(consumers)
+        .map(listFilteredBySatisfiedElements(actual))
+        .<List<E>> toArray(List[]::new);
+    
     if (!isSatisfied(satisfiedElementsLists, 0))
       throw failures.failure(info, shouldSatisfy(actual));
+  }
+  
+  private <E> Function<? super Consumer<? super E>, List<E>> listFilteredBySatisfiedElements(Iterable<? extends E> actual) {
+    return consumer -> stream(actual).filter(byPassingAssertions(consumer)).collect(toList());
   }
 
   private static <E> boolean isSatisfied(List<E>[] satisfiedElementsLists, int begin) {
